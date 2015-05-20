@@ -1,0 +1,96 @@
+Ниже приведена документация для базы данных
+"Персональный словарь 2.0"
+Используется NoSQL DB Redis
+t - string, s - set, z - sorted set, h - hash, l - list
+
+t token:id_ses -> pub_key
+* expireat
+
+z translation_h:id_ses -> { (count of lookups, id_trd), ... }
+* expireat
+
+z swriting:text -> { (count of lookups, id_wr), ... }
+z fwriting:metaphone_text -> { (count of lookups, id_wr), ... }
+h writing:id_wr -> { value => text, lang => id_lng, speechpart => id_sp }
+
+z translation:id_wr -> { (c.o.l., id_trd), ... }
+h translation_d:id_trd -> { a => id_wr, b => id_wr, comment }
+
+z source_of_translation:id_trd -> { (c.o.l., id_src) }
+l translations_of_source:id_src -> { id_trd, ... }
+h source_d:id_src -> { name => text, comment }
+
+t ssource:name -> { id_src }
+z fsource:metaphone_text -> { (c.o.l., id_src), ... }
+
+z lang { (0, en), (1, ru), (2, te), (3, pf) }
+z speechpart { (0, verb), (1, noun), (2, adjective), (3, adverb), (4, pronoun), (5, preposition), (6, conjunction), (7, interjection) }
+
+t passwd:#{passwd}#{name} -> source name
+t last_writing
+t last_translation
+t last_source
+t last_session
+
+Сценарии использования
+
+-1. В сессии присутствуют следующие переменные:
+session id (prompt), list was last query, current source, nr - number of records, nf - number of fields
+
+0. Для выводимых списков всегда доступны следующие комманды:
+- f[ilter] <1-nr> <regex> фильтрация колонки по regex
+- <number> обновление значения lookups для указанного номера
+
+1. Получение перевода слова green и нахождение источника
+Запускается client, на вход даётся s[earch]w[riting] <writing>. 
+По z swriting:text, выводится отсортированный список написаний, lang и speechpart подгружаются из других kv.
+1:№	2:lookups	3:value	4:lang	5:speechpart
+1	10		green	en	adjective
+2	2		green	en	noun
+
+Вводится t[ranslate] <number>. Увеличивается lookup. Выводится отсортированный список переводов из языка исходного написания.
+1:№	2:lookups 3:queryword	4:lang	5:translation	6:lang	7:comment			8:ctime
+1	4		green	en	зелёный	ru	green grass - зелёная трава	14.12.01
+
+Вводится s[ource of translation] <number>. Увеличивается lookup. Выводится отсортированный список источников перевода.
+1:№	2:lookups	3:name	4:comment
+1	1		yandex	big dictionary
+
+2. Получение перевода слова green, используя нечёткий поиск
+/../ на вход даётся f[uzzy-search]w[riting] <writing>
+/../
+
+3. Получение перевода слова green, используя неверную расскладку
+/../ на вход даётся t[rain]w[riting] <writing>
+/../
+
+4. Аналогично 1,2,3 может осуществлятся поиск источника s[earch]s[ource], fs, ts
+Далее можно вывести лист переводов из этого источника в прямом l[ist]d[irect order],
+в обратном l[ist]r[everse order] и в порядке популярности [list]p[opularity order].
+(l source:id_src, h translation_d:id_trd, h writing:id_wr, t lang)
+1:№	2:lookups 3:queryword	4:lang	5:translation	6:lang	7:comment			8:ctime
+1	4		green	en	зелёный	ru	green grass - зелёная трава	14.12.01
+
+5. Для сессии можно посмотреть историю запросов на перевод h[istory]
+
+6. Можно попросить устроить тест e[xam]. (Основывается на истории)
+
+7. Добавление 
+
+8. Сохранить историю переводов в файл p[ersist]h[istory]
+9. Защитить сессию d[efend]s[ession] <public key path>
+10. Добавление/изменение источника, осуществить поиск, выбрать a[dd]s[ource] <number>
+Если номер - 0. Будет добавлен новый источник, если же номер совпадает с номером колонки, изменение источника по умолчанию
+(авторизация по паролю)
+
+11. Добавление перевода.написаний
+Сначала один writing потом второй
+(Приватность источников!!)
+
+1* add_writing
+2* add_source
+3* add_translation
+4 set_session
+5 set_source
+6 get_translation
+
